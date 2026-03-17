@@ -1,0 +1,155 @@
+{
+  "info": {
+    "name": "Wavelength API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://kuk31tcuue.execute-api.eu-north-1.amazonaws.com/v1"
+    },
+    {
+      "key": "sub_id",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Create subscription (Alice, Pro)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "var json = pm.response.json();",
+              "if (json.subscriptionId) {",
+              "    pm.collectionVariables.set('sub_id', json.subscriptionId);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/subscriptions",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"userId\":\"user-1\",\"tier\":\"pro\",\"startDate\":\"2026-03-17\",\"endDate\":\"2027-03-17\"}"
+        }
+      }
+    },
+    {
+      "name": "Simulation user (expect 403)",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/subscriptions",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"userId\":\"user-5\",\"tier\":\"free\",\"startDate\":\"2026-03-17\",\"endDate\":\"2027-03-17\"}"
+        }
+      }
+    },
+    {
+      "name": "Duplicate active (expect 409)",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/subscriptions",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"userId\":\"user-1\",\"tier\":\"basic\",\"startDate\":\"2026-03-17\",\"endDate\":\"2027-03-17\"}"
+        }
+      }
+    },
+    {
+      "name": "Create (Bob, Basic)",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/subscriptions",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"userId\":\"user-2\",\"tier\":\"basic\",\"startDate\":\"2026-03-17\",\"endDate\":\"2027-03-17\"}"
+        }
+      }
+    },
+    {
+      "name": "Create (Carol, Free)",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/subscriptions",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"userId\":\"user-3\",\"tier\":\"free\",\"startDate\":\"2026-03-17\",\"endDate\":\"2027-03-17\"}"
+        }
+      }
+    },
+    {
+      "name": "Create (Dave, Pro)",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/subscriptions",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"userId\":\"user-4\",\"tier\":\"pro\",\"startDate\":\"2026-03-17\",\"endDate\":\"2027-03-17\"}"
+        }
+      }
+    },
+    {
+      "name": "List all subscriptions",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/subscriptions"
+      }
+    },
+    {
+      "name": "Filter by tier=pro",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{base_url}}/subscriptions?tier=pro",
+          "host": ["{{base_url}}"],
+          "path": ["subscriptions"],
+          "query": [{"key": "tier", "value": "pro"}]
+        }
+      }
+    },
+    {
+      "name": "Get one",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/subscriptions/{{sub_id}}"
+      }
+    },
+    {
+      "name": "Update tier to basic",
+      "request": {
+        "method": "PUT",
+        "url": "{{base_url}}/subscriptions/{{sub_id}}",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"tier\":\"basic\"}"
+        }
+      }
+    },
+    {
+      "name": "Delete",
+      "request": {
+        "method": "DELETE",
+        "url": "{{base_url}}/subscriptions/{{sub_id}}"
+      }
+    },
+    {
+      "name": "Report",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/reports/subscriptions"
+      }
+    }
+  ]
+}

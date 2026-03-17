@@ -1,0 +1,6 @@
+terraform/.terraform/
+terraform/lambda.zip
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup
+PLAN.md
+SPEC.md

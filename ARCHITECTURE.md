@@ -49,7 +49,13 @@ Client  --->  API Gateway  --->  Lambda (Python)  --->  DynamoDB
 
 **Single Lambda with `{proxy+}`** - API Gateway forwards everything to one function. Routing happens in Python via a regex table. If I needed per-route throttling or auth I'd define individual resources, but there's no reason to here.
 
-**DynamoDB over RDS** - the data is simple key-value, no joins needed. DynamoDB means no VPC, no connection pooling, and it fits within free tier. If the data became relational or the queries got complex, I'd move to Aurora Serverless.
+**DynamoDB over RDS**
+
+1. **No joins needed:** Users and subscriptions are looked up independently—get a user by ID, scan/filter subscriptions. The only cross-table check is "does this user exist" before creating a subscription, which is just a get_item, not a join.
+2. **Free tier and cost:** RDS has a free tier (750 hours/month of a micro instance for 12 months) but is always running and costs after the trial. DynamoDB's free tier is 25GB + 25 read/write capacity units permanently, and PAY_PER_REQUEST means zero cost at zero traffic.
+3. **No VPC needed:** RDS would require setting up a VPC with subnets, security groups, and a NAT gateway for Lambda to reach it. That's a lot of extra Terraform for no benefit here. DynamoDB works without VPC networking or connection pooling.
+
+If the data became relational or the queries got complex, I'd move to Aurora Serverless (auto-scaling, compatible with Postgres & Mysql).
 
 **PAY_PER_REQUEST billing** - no need to guess capacity for a demo. Scales to zero when idle.
 

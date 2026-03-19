@@ -7,6 +7,7 @@ from collections import Counter
 import boto3
 from boto3.dynamodb.conditions import Attr
 
+# create python objects to reference tables, main.tf sets the env vars for these
 dynamodb = boto3.resource("dynamodb")
 users_table = dynamodb.Table(os.environ["USERS_TABLE"])
 subscriptions_table = dynamodb.Table(os.environ["SUBSCRIPTIONS_TABLE"])
@@ -119,7 +120,7 @@ def list_subscriptions(event):
     return response(200, {"subscriptions": items, "count": len(items)})
 
 
-
+# Queries the report definition, runs the aggregation, and returns results in a consistent format
 def run_report(report_def):
     group_by = report_def.get("groupBy")
     items = subscriptions_table.scan().get("Items", [])
@@ -132,11 +133,10 @@ def run_report(report_def):
         "total": len(items),
     }
 
-
+# HTTP GET /reports/subscriptions?reportId=xyz - if reportId is provided, run that report, otherwise run all and return list
 def get_reports(event):
     params = event.get("queryStringParameters") or {}
     report_id = params.get("reportId")
-
     if report_id:
         report_def = reports_table.get_item(Key={"reportId": report_id}).get("Item")
         if not report_def:

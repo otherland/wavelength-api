@@ -5,6 +5,7 @@ import uuid
 from collections import Counter
 
 import boto3
+from boto3.dynamodb.conditions import Attr
 
 dynamodb = boto3.resource("dynamodb")
 users_table = dynamodb.Table(os.environ["USERS_TABLE"])
@@ -16,7 +17,6 @@ VALID_STATUSES = {"active", "cancelled", "expired"}
 
 
 def response(status_code, body):
-    """Helper function to format API responses consistently."""
     return {
         "statusCode": status_code,
         "headers": {"Content-Type": "application/json"},
@@ -41,7 +41,7 @@ def create_subscription(event):
     if not user:
         return response(404, {"error": "User not found"})
     if user.get("state") == "simulation":
-        return response(403, {"error": "Simulation users cannot have subscriptions"}) # sim users are for testing purposes
+        return response(403, {"error": "Simulation users cannot have subscriptions"})
 
     # Check no active subscription
     existing = subscriptions_table.query(
@@ -94,23 +94,9 @@ def update_subscription(event, sub_id):
     if not updates:
         return response(400, {"error": "No valid fields to update"})
 
-    expr_parts = []
-    expr_names = {}
-    expr_values = {}
-    for i, (k, v) in enumerate(updates.items()):
-        expr_parts.append(f"#f{i} = :v{i}")
-        expr_names[f"#f{i}"] = k
-        expr_values[f":v{i}"] = v
-
-    subscriptions_table.update_item(
-        Key={"subscriptionId": sub_id},
-        UpdateExpression="SET " + ", ".join(expr_parts),
-        ExpressionAttributeNames=expr_names,
-        ExpressionAttributeValues=expr_values,
-    )
-
-    updated = subscriptions_table.get_item(Key={"subscriptionId": sub_id}).get("Item")
-    return response(200, updated)
+    item.update(updates)
+    subscriptions_table.put_item(Item=item)
+    return response(200, item)
 
 
 def delete_subscription(event, sub_id):
@@ -125,27 +111,31 @@ def delete_subscription(event, sub_id):
 def list_subscriptions(event):
     params = event.get("queryStringParameters") or {}
 
-    filter_parts = []
-    expr_names = {}
-    expr_values = {}
-    i = 0
-
-    for field in ("userId", "tier", "status"):
-        if field in params:
-            expr_names[f"#f{i}"] = field
-            expr_values[f":v{i}"] = params[field]
-            filter_parts.append(f"#f{i} = :v{i}")
-            i += 1
+    conditions = [Attr(f).eq(params[f]) for f in ("userId", "tier", "status") if f in params]
 
     scan_kwargs = {}
-    if filter_parts:
-        scan_kwargs["FilterExpression"] = " AND ".join(filter_parts)
-        scan_kwargs["ExpressionAttributeNames"] = expr_names
-        scan_kwargs["ExpressionAttributeValues"] = expr_values
+    if conditions:
+        combined = conditions[0]
+        for c in conditions[1:]:
+            combined = combined & c
+        scan_kwargs["FilterExpression"] = combined
 
     items = subscriptions_table.scan(**scan_kwargs).get("Items", [])
     return response(200, {"subscriptions": items, "count": len(items)})
 
+
+
+def run_report(report_def):
+    group_by = report_def.get("groupBy")
+    items = subscriptions_table.scan().get("Items", [])
+    counts = Counter(item.get(group_by, "unknown") for item in items)
+    return {
+        "reportId": report_def["reportId"],
+        "name": report_def.get("name", report_def["reportId"]),
+        "groupBy": group_by,
+        "results": dict(counts),
+        "total": len(items),
+    }
 
 
 def get_reports(event):
@@ -153,42 +143,13 @@ def get_reports(event):
     report_id = params.get("reportId")
 
     if report_id:
-        # Run a specific report
         report_def = reports_table.get_item(Key={"reportId": report_id}).get("Item")
         if not report_def:
             return response(404, {"error": "Report not found"})
-        return run_report(report_def)
+        return response(200, run_report(report_def))
 
-    # List available reports
     definitions = reports_table.scan().get("Items", [])
-
-    if not definitions:
-        return response(200, {"message": "No reports defined", "reports": []})
-
-    # Run all reports
-    results = []
-    for defn in definitions:
-        result = run_report(defn)
-        body = json.loads(result["body"])
-        results.append(body)
-
-    return response(200, {"reports": results})
-
-
-def run_report(report_def):
-    group_by = report_def.get("groupBy")
-    name = report_def.get("name", report_def["reportId"])
-
-    items = subscriptions_table.scan().get("Items", [])
-    counts = Counter(item.get(group_by, "unknown") for item in items)
-
-    return response(200, {
-        "reportId": report_def["reportId"],
-        "name": name,
-        "groupBy": group_by,
-        "results": dict(counts),
-        "total": len(items),
-    })
+    return response(200, {"reports": [run_report(d) for d in definitions]})
 
 
 ROUTES = [
@@ -202,6 +163,7 @@ ROUTES = [
 
 
 def handler(event, context):
+    """the Lambda entry point. In main.tf"""
     method = event.get("httpMethod", "")
     path = event.get("path", "")
 

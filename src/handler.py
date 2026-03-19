@@ -16,6 +16,7 @@ VALID_STATUSES = {"active", "cancelled", "expired"}
 
 
 def response(status_code, body):
+    """Helper function to format API responses consistently."""
     return {
         "statusCode": status_code,
         "headers": {"Content-Type": "application/json"},
@@ -40,11 +41,13 @@ def create_subscription(event):
     if not user:
         return response(404, {"error": "User not found"})
     if user.get("state") == "simulation":
-        return response(403, {"error": "Simulation users cannot have subscriptions"})
+        return response(403, {"error": "Simulation users cannot have subscriptions"}) # sim users are for testing purposes
 
     # Check no active subscription
-    existing = subscriptions_table.scan(
-        FilterExpression="userId = :uid AND #s = :active",
+    existing = subscriptions_table.query(
+        IndexName="userId-index",
+        KeyConditionExpression="userId = :uid",
+        FilterExpression="#s = :active",
         ExpressionAttributeNames={"#s": "status"},
         ExpressionAttributeValues={":uid": body["userId"], ":active": "active"},
     ).get("Items", [])

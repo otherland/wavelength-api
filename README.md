@@ -1,6 +1,6 @@
 # Wavelength
 
-Subscription API for a fictional music streaming service. Built on AWS with Terraform.
+Subscription API for a music streaming service. Built on AWS with Terraform.
 
 ## Architecture
 

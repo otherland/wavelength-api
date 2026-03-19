@@ -12,7 +12,7 @@ provider "aws" {
   profile = "principal-task"
 }
 
-
+# where users live
 resource "aws_dynamodb_table" "users" {
   name         = "${var.project_name}-users"
   billing_mode = "PAY_PER_REQUEST"
@@ -24,6 +24,7 @@ resource "aws_dynamodb_table" "users" {
   }
 }
 
+# where subscriptions live, with a secondary index so we can look up by userId
 resource "aws_dynamodb_table" "subscriptions" {
   name         = "${var.project_name}-subscriptions"
   billing_mode = "PAY_PER_REQUEST"
@@ -46,6 +47,7 @@ resource "aws_dynamodb_table" "subscriptions" {
   }
 }
 
+# where report configs live (the extensibility bit)
 resource "aws_dynamodb_table" "report_definitions" {
   name         = "${var.project_name}-report-definitions"
   billing_mode = "PAY_PER_REQUEST"
@@ -57,13 +59,14 @@ resource "aws_dynamodb_table" "report_definitions" {
   }
 }
 
-
+# zips handler.py so Lambda can accept it
 data "archive_file" "lambda_zip" {
   type        = "zip"
   source_file = "${path.module}/../src/handler.py"
   output_path = "${path.module}/lambda.zip"
 }
 
+# the actual function that runs our Python code
 resource "aws_lambda_function" "api" {
   function_name    = "${var.project_name}-api"
   filename         = data.archive_file.lambda_zip.output_path
@@ -82,6 +85,7 @@ resource "aws_lambda_function" "api" {
   }
 }
 
+# identity the Lambda runs as
 resource "aws_iam_role" "lambda" {
   name = "${var.project_name}-lambda-role"
 
@@ -97,6 +101,7 @@ resource "aws_iam_role" "lambda" {
   })
 }
 
+# what the Lambda is allowed to do (DynamoDB + logs, nothing else)
 resource "aws_iam_role_policy" "lambda_dynamo" {
   name = "${var.project_name}-lambda-dynamo"
   role = aws_iam_role.lambda.id
@@ -134,17 +139,19 @@ resource "aws_iam_role_policy" "lambda_dynamo" {
   })
 }
 
-
+# the public URL that receives HTTP requests
 resource "aws_api_gateway_rest_api" "main" {
   name = "${var.project_name}-api"
 }
 
+# catch-all path, every request goes to Lambda
 resource "aws_api_gateway_resource" "proxy" {
   rest_api_id = aws_api_gateway_rest_api.main.id
   parent_id   = aws_api_gateway_rest_api.main.root_resource_id
   path_part   = "{proxy+}"
 }
 
+# accept any HTTP method (GET, POST, PUT, DELETE)
 resource "aws_api_gateway_method" "proxy" {
   rest_api_id   = aws_api_gateway_rest_api.main.id
   resource_id   = aws_api_gateway_resource.proxy.id
@@ -152,6 +159,7 @@ resource "aws_api_gateway_method" "proxy" {
   authorization = "NONE"
 }
 
+# wire the method to Lambda (pass the whole request through)
 resource "aws_api_gateway_integration" "proxy" {
   rest_api_id             = aws_api_gateway_rest_api.main.id
   resource_id             = aws_api_gateway_resource.proxy.id
@@ -161,6 +169,7 @@ resource "aws_api_gateway_integration" "proxy" {
   uri                     = aws_lambda_function.api.invoke_arn
 }
 
+# publish the API config (redeploys when resources change)
 resource "aws_api_gateway_deployment" "main" {
   rest_api_id = aws_api_gateway_rest_api.main.id
 
@@ -179,12 +188,14 @@ resource "aws_api_gateway_deployment" "main" {
   }
 }
 
+# version label on the URL (/v1)
 resource "aws_api_gateway_stage" "main" {
   deployment_id = aws_api_gateway_deployment.main.id
   rest_api_id   = aws_api_gateway_rest_api.main.id
   stage_name    = "v1"
 }
 
+# lets API Gateway actually call the Lambda
 resource "aws_lambda_permission" "apigw" {
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"

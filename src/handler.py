@@ -43,13 +43,8 @@ def create_subscription(event):
     if user.get("state") == "simulation":
         return response(403, {"error": "Simulation users cannot have subscriptions"})
 
-    # Check no active subscription
-    existing = subscriptions_table.query(
-        IndexName="userId-index",
-        KeyConditionExpression="userId = :uid",
-        FilterExpression="#s = :active",
-        ExpressionAttributeNames={"#s": "status"},
-        ExpressionAttributeValues={":uid": body["userId"], ":active": "active"},
+    existing = subscriptions_table.scan(
+        FilterExpression=Attr("userId").eq(body["userId"]) & Attr("status").eq("active")
     ).get("Items", [])
     if existing:
         return response(409, {"error": "User already has an active subscription"})

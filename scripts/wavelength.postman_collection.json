@@ -64,6 +64,30 @@
       }
     },
     {
+      "name": "Invalid tier (expect 400)",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/subscriptions",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"userId\":\"user-2\",\"tier\":\"gold\",\"startDate\":\"2026-03-17\",\"endDate\":\"2027-03-17\"}"
+        }
+      }
+    },
+    {
+      "name": "Non-existent user (expect 404)",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/subscriptions",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"userId\":\"user-999\",\"tier\":\"free\",\"startDate\":\"2026-03-17\",\"endDate\":\"2027-03-17\"}"
+        }
+      }
+    },
+    {
       "name": "Create (Bob, Basic)",
       "request": {
         "method": "POST",
@@ -100,7 +124,7 @@
       }
     },
     {
-      "name": "List all subscriptions",
+      "name": "List all",
       "request": {
         "method": "GET",
         "url": "{{base_url}}/subscriptions"
@@ -115,6 +139,30 @@
           "host": ["{{base_url}}"],
           "path": ["subscriptions"],
           "query": [{"key": "tier", "value": "pro"}]
+        }
+      }
+    },
+    {
+      "name": "Filter by status=active",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{base_url}}/subscriptions?status=active",
+          "host": ["{{base_url}}"],
+          "path": ["subscriptions"],
+          "query": [{"key": "status", "value": "active"}]
+        }
+      }
+    },
+    {
+      "name": "Filter by userId",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{base_url}}/subscriptions?userId=user-1",
+          "host": ["{{base_url}}"],
+          "path": ["subscriptions"],
+          "query": [{"key": "userId", "value": "user-1"}]
         }
       }
     },
@@ -138,6 +186,18 @@
       }
     },
     {
+      "name": "Cancel subscription",
+      "request": {
+        "method": "PUT",
+        "url": "{{base_url}}/subscriptions/{{sub_id}}",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"status\":\"cancelled\"}"
+        }
+      }
+    },
+    {
       "name": "Delete",
       "request": {
         "method": "DELETE",
@@ -145,10 +205,22 @@
       }
     },
     {
-      "name": "Report",
+      "name": "All reports",
       "request": {
         "method": "GET",
         "url": "{{base_url}}/reports/subscriptions"
+      }
+    },
+    {
+      "name": "Report by ID",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{base_url}}/reports/subscriptions?reportId=by-tier",
+          "host": ["{{base_url}}"],
+          "path": ["reports", "subscriptions"],
+          "query": [{"key": "reportId", "value": "by-tier"}]
+        }
       }
     }
   ]

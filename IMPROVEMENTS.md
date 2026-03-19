@@ -5,9 +5,9 @@ Things I deliberately left out of the demo but would want before this goes live.
 
 ## Auth
 
-The API is open. Anyone with the URL can hit it. In production I'd add an API key on the gateway at minimum, or JWT validation in the handler if we need per-user access control.
+I'd add an API key on the gateway at minimum, or JWT validation in the handler if we need per-user access control.
 
-API Gateway supports API keys natively - just add `api_key_required = true` to the method in Terraform and create a usage plan.
+API Gateway supports API keys natively - just add `api_key_required = true` to the method in Terraform and create a usage plan. 
 
 
 ## Pagination
@@ -26,9 +26,9 @@ if "cursor" in params:
 
 `list_subscriptions` and `run_report` both scan the whole table. A scan reads every item then filters - so with a million rows and a filter that matches 3, DynamoDB still reads all million and charges for it.
 
-For the list endpoint: add GSIs for commonly filtered fields (tier, status) and use `query` instead of `scan`.
+For the list endpoint: add indexes for commonly filtered fields (tier, status) and use `query` instead of `scan`.
 
-For reporting: at scale, export to S3 and use Athena, or move to Postgres where this is just a `GROUP BY`.
+For reporting: at scale, move to Postgres where this is just a `GROUP BY`.
 
 
 ## Date validation

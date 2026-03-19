@@ -76,7 +76,7 @@ resource "aws_lambda_function" "api" {
   timeout          = 10
   role             = aws_iam_role.lambda.arn
 
-  environment {
+  environment { # pass the table names to the Lambda as env vars, so handler.py can reference them without hardcoding
     variables = {
       USERS_TABLE              = aws_dynamodb_table.users.name
       SUBSCRIPTIONS_TABLE      = aws_dynamodb_table.subscriptions.name

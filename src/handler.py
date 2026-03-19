@@ -7,13 +7,19 @@ from collections import Counter
 import boto3
 from boto3.dynamodb.conditions import Attr
 
+import logging
+
+# Set up logging for Lambda (prints go to CloudWatch)
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
 # create python objects to reference tables, main.tf sets the env vars for these
 dynamodb = boto3.resource("dynamodb")
 users_table = dynamodb.Table(os.environ["USERS_TABLE"])
 subscriptions_table = dynamodb.Table(os.environ["SUBSCRIPTIONS_TABLE"])
 reports_table = dynamodb.Table(os.environ["REPORT_DEFINITIONS_TABLE"])
 
-VALID_TIERS = {"free", "basic", "pro"}
+VALID_TIERS = {"free", "basic", "pro", "enterprise"}
 VALID_STATUSES = {"active", "cancelled", "expired"}
 
 
@@ -123,6 +129,8 @@ def list_subscriptions(event):
 # Queries the report definition, runs the aggregation, and returns results in a consistent format
 def run_report(report_def):
     group_by = report_def.get("groupBy")
+    logger.info(f"Running report: {report_def['reportId']} groupBy={group_by}")
+    # on production move to Postgres where I can index the columns I filter on and let the database do the work
     items = subscriptions_table.scan().get("Items", [])
     counts = Counter(item.get(group_by, "unknown") for item in items)
     return {
@@ -145,7 +153,6 @@ def get_reports(event):
 
     definitions = reports_table.scan().get("Items", [])
     return response(200, {"reports": [run_report(d) for d in definitions]})
-
 
 ROUTES = [
     ("POST", r"^/subscriptions$", lambda e, _: create_subscription(e)),

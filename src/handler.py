@@ -19,7 +19,7 @@ users_table = dynamodb.Table(os.environ["USERS_TABLE"])
 subscriptions_table = dynamodb.Table(os.environ["SUBSCRIPTIONS_TABLE"])
 reports_table = dynamodb.Table(os.environ["REPORT_DEFINITIONS_TABLE"])
 
-VALID_TIERS = {"free", "basic", "pro", "enterprise"}
+VALID_TIERS = {"free", "basic", "pro"}
 VALID_STATUSES = {"active", "cancelled", "expired"}
 
 

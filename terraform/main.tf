@@ -70,7 +70,7 @@ data "archive_file" "lambda_zip" {
 resource "aws_lambda_function" "api" {
   function_name    = "${var.project_name}-api"
   filename         = data.archive_file.lambda_zip.output_path
-  source_code_hash = data.archive_file.lambda_zip.output_base64sha256
+  source_code_hash = data.archive_file.lambda_zip.output_base64sha256 # without this, Terraform won't update the Lambda when handler.py changes
   handler          = "handler.handler"
   runtime          = "python3.12"
   timeout          = 10
@@ -102,6 +102,7 @@ resource "aws_iam_role" "lambda" {
 }
 
 # what the Lambda is allowed to do (DynamoDB + logs, nothing else)
+# least privilege is important - don't give the Lambda more permissions than it needs
 resource "aws_iam_role_policy" "lambda_dynamo" {
   name = "${var.project_name}-lambda-dynamo"
   role = aws_iam_role.lambda.id
@@ -148,7 +149,7 @@ resource "aws_api_gateway_rest_api" "main" {
 resource "aws_api_gateway_resource" "proxy" {
   rest_api_id = aws_api_gateway_rest_api.main.id
   parent_id   = aws_api_gateway_rest_api.main.root_resource_id
-  path_part   = "{proxy+}"
+  path_part   = "{proxy+}" # if we wanted throttling or auth on specific endpoints we could define them here instead of a catch-all, but this is simpler for now
 }
 
 # accept any HTTP method (GET, POST, PUT, DELETE)

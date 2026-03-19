@@ -64,7 +64,7 @@ def create_subscription(event):
         "startDate": body["startDate"],
         "endDate": body["endDate"],
     }
-    subscriptions_table.put_item(Item=subscription)
+    subscriptions_table.put_item(Item=subscription) # in a real system, I'd use update_item with a condition expression
     return response(201, subscription)
 
 
@@ -130,8 +130,9 @@ def list_subscriptions(event):
 def run_report(report_def):
     group_by = report_def.get("groupBy")
     logger.info(f"Running report: {report_def['reportId']} groupBy={group_by}")
-    # on production move to Postgres where I can index the columns I filter on and let the database do the work
-    items = subscriptions_table.scan().get("Items", [])
+    # on production move to Postgres where I can index the columns I filter on and aggregate efficiently, but for this exercise we'll just scan and do it in memory since we don't expect a lot of data
+    # The Lambda would use psycopg2 instead of boto3 to talk to the database, and the queries become plain SQL
+    items = subscriptions_table.scan().get("Items", []) # move this into get_reports and pass in the items to avoid scanning multiple times if we run all reports
     counts = Counter(item.get(group_by, "unknown") for item in items)
     return {
         "reportId": report_def["reportId"],
@@ -155,15 +156,15 @@ def get_reports(event):
     return response(200, {"reports": [run_report(d) for d in definitions]})
 
 ROUTES = [
-    ("POST", r"^/subscriptions$", lambda e, _: create_subscription(e)),
+    ("POST", r"^/subscriptions$", lambda e, _: create_subscription(e)), # $ means end of string, so this won't match /subscriptions/123
     ("GET", r"^/subscriptions$", lambda e, _: list_subscriptions(e)),
     ("GET", r"^/subscriptions/(?P<id>[^/]+)$", lambda e, m: get_subscription(e, m.group("id"))),
     ("PUT", r"^/subscriptions/(?P<id>[^/]+)$", lambda e, m: update_subscription(e, m.group("id"))),
-    ("DELETE", r"^/subscriptions/(?P<id>[^/]+)$", lambda e, m: delete_subscription(e, m.group("id"))),
+    ("DELETE", r"^/subscriptions/(?P<id>[^/]+)$", lambda e, m: delete_subscription(e, m.group("id"))), # this could be a soft delete in a real system, but for simplicity we'll just remove it
     ("GET", r"^/reports/subscriptions$", lambda e, _: get_reports(e)),
 ]
 
-
+# One function means one deployment, one set of logs, one IAM role. If I needed different memory, timeout, or permissions per endpoint I'd split them out, but here it's all the same - read and write to the same three tables.
 def handler(event, context):
     """the Lambda entry point. In main.tf"""
     method = event.get("httpMethod", "")
@@ -176,3 +177,4 @@ def handler(event, context):
                 return func(event, match)
 
     return response(404, {"error": "Not found"})
+
